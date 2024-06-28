@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 
+
 # Config classes here are very roughly following the format of Tensorflow Model Garden: https://www.tensorflow.org/guide/model_garden#training_framework
 # to try and make expanding to new models and tasks slightly easier by logically breaking up the parameters to training into distinct pieces and directly
 # documenting the fields which can be configured.
@@ -15,7 +16,9 @@ class ECoGDataConfig:
     # transform.
     env: bool = False
     # Frequency bands for filtering raw iEEG data.
-    bands: list[list[int]] = ([[4, 8], [8, 13], [13, 30], [30, 55], [70, 200]],)
+    bands: list[list[int]] = field(
+        default_factory=lambda: [[4, 8], [8, 13], [13, 30], [30, 55], [70, 200]]
+    )
     # Frequency to resample data to.
     new_fs: int = 20
     # Relative path to the dataset root directory.
@@ -37,7 +40,7 @@ class TrainerConfig:
     # Number of epochs to train over data.
     num_epochs: int = 10
     # Type of loss to use.
-    loss: str = 'patch'
+    loss: str = "patch"
 
 
 @dataclass
@@ -97,7 +100,7 @@ def create_video_mae_experiment_config(args):
             tube_mask_ratio=args.tube_mask_ratio,
             decoder_mask_ratio=args.decoder_mask_ratio,
             use_contrastive_loss=args.use_contrastive_loss,
-            running_cell_masking=args.running_cell_masking
+            running_cell_masking=args.running_cell_masking,
         ),
         trainer_config=TrainerConfig(
             learning_rate=args.learning_rate,
