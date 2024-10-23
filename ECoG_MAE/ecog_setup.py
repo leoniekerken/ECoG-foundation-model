@@ -158,16 +158,11 @@ def model_setup(config: VideoMAEExperimentConfig, device, num_train_samples):
         },
     ]
 
-    max_lr = 3e-5  # 3e-5 seems to be working best? original videomae used 1.5e-4
-
-    if config.trainer_config.learning_rate == 0:
-        optimizer = torch.optim.AdamW(opt_grouped_parameters, lr=max_lr)
-    else:
-        optimizer = torch.optim.AdamW(opt_grouped_parameters, lr=config.trainer_config.learning_rate)
+    optimizer = torch.optim.AdamW(opt_grouped_parameters, lr=config.trainer_config.max_learning_rate)
 
     lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(
         optimizer,
-        max_lr=max_lr,
+        max_lr=config.trainer_config.max_learning_rate,
         epochs=config.trainer_config.num_epochs,
         steps_per_epoch=math.ceil(num_train_samples / config.ecog_data_config.batch_size),
     )

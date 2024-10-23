@@ -8,11 +8,11 @@ import pandas as pd
 import scipy
 
 from utils import get_signal_stats, preprocess_neural_data
-from downstream_tasks.encoding.config import EncodingDataConfig
+from downstream_tasks.encoding_decoding.config import EncodingDecodingDataConfig
 
 
-class EncodingDataset:
-    def __init__(self, config: EncodingDataConfig):
+class EncodingDecodingDataset:
+    def __init__(self, config: EncodingDecodingDataConfig):
         self.config = config
         self.encoding_neural_data_folder = config.encoding_neural_data_folder
         self.electrode_glob_path = config.electrode_glob_path

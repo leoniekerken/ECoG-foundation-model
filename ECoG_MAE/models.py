@@ -5,6 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from einops import rearrange
 from einops.layers.torch import Rearrange
+import constants
 from rope import RotaryPositionalEmbeddings4D
 from mask import get_padding_mask, get_tube_mask
 
@@ -342,20 +343,11 @@ class SimpleViT(nn.Module):
                 
                 tube_padding_mask = get_padding_mask(nanned_signal, self, x.device)
                 
-                num_patches = int(  # Defining the number of patches
-                    (self.image_size[0] / self.image_size[0])
-                    * (self.image_size[1] / self.patch_dims[1])
-                    * (self.image_size[2] / self.patch_dims[2])
-                    * num_frames
-                    / self.frame_patch_size
-    )
-                
                 encoder_mask = get_tube_mask(
-                    self.frame_patch_size,
-                    # Dont mask anything.
-                    0,
-                    num_patches,
-                    num_frames,
+                    # Don't mask anything.
+                    0.,
+                    constants.GRID_HEIGHT,
+                    constants.GRID_WIDTH,
                     tube_padding_mask,
                     x.device,
                 )

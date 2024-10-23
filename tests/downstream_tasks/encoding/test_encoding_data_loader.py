@@ -5,8 +5,8 @@ import numpy as np
 import pandas as pd
 import scipy
 
-from downstream_tasks.encoding.config import EncodingDataConfig
-from downstream_tasks.encoding.load_signal import EncodingDataset
+from downstream_tasks.encoding_decoding.config import EncodingDecodingDataConfig
+from downstream_tasks.encoding_decoding.load_signal import EncodingDecodingDataset
 
 ELECTRODE_FILE_FORMAT_STR = "electrode_{elec_id}.mat"
 
@@ -53,13 +53,13 @@ def test_correctly_locates_electrodes(
     fake_signal = np.ones((64, 1000, 1))
     dataset_path = create_fake_electrode_files_fn(fake_signal)
 
-    config = EncodingDataConfig(
+    config = EncodingDecodingDataConfig(
         encoding_neural_data_folder=dataset_path,
         electrode_glob_path=ELECTRODE_FILE_FORMAT_STR,
         conversation_data_df_path=create_word_embedding_csv_fn(),
     )
 
-    data_loader = EncodingDataset(config)
+    data_loader = EncodingDecodingDataset(config)
 
     actual_electrode_data = data_loader._load_grid_data()
 
@@ -73,13 +73,13 @@ def test_correctly_pads_missing_electrodes(
     fake_signal = np.ones((62, 1000, 1))
     dataset_path = create_fake_electrode_files_fn(fake_signal)
 
-    config = EncodingDataConfig(
+    config = EncodingDecodingDataConfig(
         encoding_neural_data_folder=dataset_path,
         electrode_glob_path=ELECTRODE_FILE_FORMAT_STR,
         conversation_data_df_path=create_word_embedding_csv_fn(),
     )
 
-    data_loader = EncodingDataset(config)
+    data_loader = EncodingDecodingDataset(config)
 
     actual_electrode_data = data_loader._load_grid_data()
 
@@ -111,7 +111,7 @@ def test_correctly_loads_word_and_neural_data(
     word_data_path = create_word_embedding_csv_fn(embeddings=embeddings, onsets=onsets)
     dataset_path = create_fake_electrode_files_fn(fake_signal)
 
-    config = EncodingDataConfig(
+    config = EncodingDecodingDataConfig(
         encoding_neural_data_folder=dataset_path,
         electrode_glob_path=ELECTRODE_FILE_FORMAT_STR,
         conversation_data_df_path=word_data_path,
@@ -119,7 +119,7 @@ def test_correctly_loads_word_and_neural_data(
         original_fs=sampling_frequency,
     )
 
-    data_loader = EncodingDataset(config)
+    data_loader = EncodingDecodingDataset(config)
 
     num_examples = 0
     for i, (word_embedding, neural_data) in enumerate(data_loader):
@@ -169,7 +169,7 @@ def test_handles_positive_lag_correctly(
     word_data_path = create_word_embedding_csv_fn(embeddings=embeddings, onsets=onsets)
     dataset_path = create_fake_electrode_files_fn(fake_signal)
 
-    config = EncodingDataConfig(
+    config = EncodingDecodingDataConfig(
         encoding_neural_data_folder=dataset_path,
         electrode_glob_path=ELECTRODE_FILE_FORMAT_STR,
         conversation_data_df_path=word_data_path,
@@ -178,7 +178,7 @@ def test_handles_positive_lag_correctly(
         lag=1000,
     )
 
-    data_loader = EncodingDataset(config)
+    data_loader = EncodingDecodingDataset(config)
 
     num_examples = 0
     for i, (word_embedding, neural_data) in enumerate(data_loader):
@@ -228,7 +228,7 @@ def test_handles_negative_lag_correctly(
     word_data_path = create_word_embedding_csv_fn(embeddings=embeddings, onsets=onsets)
     dataset_path = create_fake_electrode_files_fn(fake_signal)
 
-    config = EncodingDataConfig(
+    config = EncodingDecodingDataConfig(
         encoding_neural_data_folder=dataset_path,
         electrode_glob_path=ELECTRODE_FILE_FORMAT_STR,
         conversation_data_df_path=word_data_path,
@@ -237,7 +237,7 @@ def test_handles_negative_lag_correctly(
         lag=-1000,
     )
 
-    data_loader = EncodingDataset(config)
+    data_loader = EncodingDecodingDataset(config)
 
     num_examples = 0
     for i, (word_embedding, neural_data) in enumerate(data_loader):
@@ -279,7 +279,7 @@ def test_can_handle_padding_signal_when_lag_is_before_signal_start(
     word_data_path = create_word_embedding_csv_fn(embeddings=embeddings, onsets=onsets)
     dataset_path = create_fake_electrode_files_fn(fake_signal)
 
-    config = EncodingDataConfig(
+    config = EncodingDecodingDataConfig(
         encoding_neural_data_folder=dataset_path,
         electrode_glob_path=ELECTRODE_FILE_FORMAT_STR,
         conversation_data_df_path=word_data_path,
@@ -288,7 +288,7 @@ def test_can_handle_padding_signal_when_lag_is_before_signal_start(
         lag=-2000,
     )
 
-    data_loader = EncodingDataset(config)
+    data_loader = EncodingDecodingDataset(config)
 
     num_examples = 0
     for i, (word_embedding, neural_data) in enumerate(data_loader):
@@ -337,7 +337,7 @@ def test_can_handle_padding_signal_when_end_of_sample_is_after_signal_ends(
     word_data_path = create_word_embedding_csv_fn(embeddings=embeddings, onsets=onsets)
     dataset_path = create_fake_electrode_files_fn(fake_signal)
 
-    config = EncodingDataConfig(
+    config = EncodingDecodingDataConfig(
         encoding_neural_data_folder=dataset_path,
         electrode_glob_path=ELECTRODE_FILE_FORMAT_STR,
         conversation_data_df_path=word_data_path,
@@ -346,7 +346,7 @@ def test_can_handle_padding_signal_when_end_of_sample_is_after_signal_ends(
         lag=0,
     )
 
-    data_loader = EncodingDataset(config)
+    data_loader = EncodingDecodingDataset(config)
 
     num_examples = 0
     for i, (word_embedding, neural_data) in enumerate(data_loader):

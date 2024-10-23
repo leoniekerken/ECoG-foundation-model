@@ -8,24 +8,28 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LinearRegression
 import torch
 import torch.nn as nn
+from scipy import stats
 
 from config import ECoGDataConfig
-from downstream_tasks.encoding.config import (
-    EncodingDataConfig,
-    EncodingExperimentConfig,
+from downstream_tasks.encoding_decoding.config import (
+    EncodingDecodingDataConfig,
+    EncodingDecodingExperimentConfig,
 )
-from downstream_tasks.encoding.load_signal import EncodingDataset
+from downstream_tasks.encoding_decoding.load_signal import EncodingDecodingDataset
 
 
 def run_encoding_task(
-    experiment_config: EncodingExperimentConfig,
+    experiment_config: EncodingDecodingExperimentConfig,
     ecog_data_config: ECoGDataConfig,
     model,
 ):
     """Run encoding task between word embeddings and neural embeddings.
+    
+    As of right now these encoding and decoding can use practically the same code. If they start to diverge too much though we
+    can split them up more.
 
     Args:
-        experiment_config (EncodingExperimentConfig): Config for encoding.
+        experiment_config (EncodingDecodingExperimentConfig): Config for encoding.
         ecog_data_config (ECoGDataConfig): Config for processing data. Should be from model checkpoint.
         model (nn.Module): Callable model on neural data for generating embeddings. Currently just SimpleViT
         inference_device_name (str): Device to run encoding on (i.e. cpu, cuda, etc)
@@ -37,7 +41,7 @@ def run_encoding_task(
         experiment_config.encoding_data_config, ecog_data_config
     )
 
-    dataset = EncodingDataset(encoding_data_config)
+    dataset = EncodingDecodingDataset(encoding_data_config)
 
     word_embeddings, neural_embeddings = generate_embedding_dataset(
         dataset,
@@ -52,44 +56,93 @@ def run_encoding_task(
         experiment_config.encoding_task_config.num_folds,
     )
 
-    rp, _, _ = pearson_correlation(neural_embeddings, predictions)
+    correlation_metrics = get_correlation_metrics(neural_embeddings, predictions)
     mspe = np.square(neural_embeddings - predictions).mean()
 
-    return rp, mspe
+    return correlation_metrics, mspe
 
 
-def pearson_correlation(groundtruth, predicted):
-    """Get correlation metrics for two sets of data. Here named groundtruth and predicted to align with our usecase.
-
-    Code borrowed with minor alterations from: https://github.com/hassonlab/247-encoding/blob/e0b7468824bc950f15dd8e47f9b7c4bdb3615109/scripts/tfsenc_utils.py#L18
+def run_decoding_task(
+    experiment_config: EncodingDecodingExperimentConfig,
+    ecog_data_config: ECoGDataConfig,
+    model,
+):
+    """Run decoding task between neural embeddings and word embeddings.
+    
+    As of right now these encoding and decoding can use practically the same code. If they start to diverge too much though we
+    can split them up more.
 
     Args:
-        groundtruth (np.array): shape [num_examples, ]
-        predicted (np.array): [description]
+        experiment_config (EncodingDecodingExperimentConfig): Config for encoding.
+        ecog_data_config (ECoGDataConfig): Config for processing data. Should be from model checkpoint.
+        model (nn.Module): Callable model on neural data for generating embeddings. Currently just SimpleViT
+        inference_device_name (str): Device to run encoding on (i.e. cpu, cuda, etc)
 
     Returns:
-        [type]: [description]
+        tuple[np.array, np.array]: (pearson correlations, mean squared prediction error)
     """
-    df = np.shape(groundtruth)[1] - 2
-
-    groundtruth -= np.mean(groundtruth, axis=1, keepdims=True)
-    predicted -= np.mean(predicted, axis=1, keepdims=True)
-
-    r = np.sum(groundtruth * predicted, 1) / np.sqrt(
-        np.sum(groundtruth * groundtruth, 1) * np.sum(predicted * predicted, 1)
+    encoding_data_config = merge_data_configs(
+        experiment_config.encoding_data_config, ecog_data_config
     )
 
-    t = r / (np.sqrt((1 - np.square(r))) / df)
-    p = stats.t.sf(t, df)
+    dataset = EncodingDecodingDataset(encoding_data_config)
 
-    r = r.squeeze()
+    word_embeddings, neural_embeddings = generate_embedding_dataset(
+        dataset,
+        model,
+        experiment_config.encoding_task_config.embedding_batch_size,
+        experiment_config.encoding_task_config.embedding_device,
+    )
+    
+    # Only change as of now is the order of regression.
+    predictions = run_regression(
+        neural_embeddings,
+        word_embeddings,
+        experiment_config.encoding_task_config.num_folds,
+    )
 
-    if r.size > 1:
-        r = r.tolist()
-    else:
-        r = float(r)
+    correlation_metrics = get_correlation_metrics(word_embeddings, predictions)
+    mspe = np.square(word_embeddings - predictions).mean()
 
-    return r, p, t
+    return correlation_metrics, mspe
+
+
+def get_correlation_metrics(groundtruth, predicted):
+    """
+    Calculate summary correlation metrics for two sets of embeddings.
+
+    Args:
+    groundtruth (np.array): shape [num_embeddings, embedding_dim]
+    predicted (np.array): shape [num_embeddings, embedding_dim]
+
+    Returns:
+    dict: A dictionary containing various correlation metrics
+    """
+    # Flatten the matrices
+    gt_flat = groundtruth.flatten()
+    pred_flat = predicted.flatten()
+
+    # Calculate overall Pearson correlation
+    overall_corr, overall_p = stats.pearsonr(gt_flat, pred_flat)
+
+    # Calculate per-dimension correlations
+    dim_corrs = np.array([stats.pearsonr(groundtruth[:, i], predicted[:, i])[0] 
+                          for i in range(groundtruth.shape[1])])
+
+    # Calculate per-embedding correlations
+    emb_corrs = np.array([stats.pearsonr(groundtruth[i, :], predicted[i, :])[0] 
+                          for i in range(groundtruth.shape[0])])
+
+    return {
+        "overall_correlation": overall_corr,
+        "overall_p_value": overall_p,
+        "dimension_correlation": dim_corrs,
+        "embedding_correlation": emb_corrs,
+        "mean_dimension_correlation": np.mean(dim_corrs),
+        "mean_embedding_correlation": np.mean(emb_corrs),
+        "median_dimension_correlation": np.median(dim_corrs),
+        "median_embedding_correlation": np.median(emb_corrs)
+    }
 
 
 # TODO: Add tests for this.
@@ -131,12 +184,12 @@ def run_regression(X: np.array, Y: np.array, num_folds: int) -> np.array:
 
 # TODO: Add tests for this.
 def generate_embedding_dataset(
-    dataset: EncodingDataset, model: nn.Module, embedding_batch_size: int, device: str
+    dataset: EncodingDecodingDataset, model: nn.Module, embedding_batch_size: int, device: str
 ) -> tuple[np.array, np.array]:
     """Gathers word embeddings and generates neural embeddings using model from the dataset.
 
     Args:
-        dataset (EncodingDataset): dataset used to gather word and neural data.
+        dataset (EncodingDecodingDataset): dataset used to gather word and neural data.
         model (nn.Module): model used to generate neural embeddings. Expected as of now to output embeddings of shape
             [batch_size, num_tokens, output_dim] where num_tokens is the number of patches for the VideoMAE model, although different
             models could be plugged in here as well. Embeddings are joined together using average pooling to form one summary embedding.
@@ -190,16 +243,16 @@ def generate_embedding_dataset(
 
 
 def merge_data_configs(
-    encoding_data_config: EncodingDataConfig, ecog_data_config: ECoGDataConfig
-) -> EncodingDataConfig:
+    encoding_data_config: EncodingDecodingDataConfig, ecog_data_config: ECoGDataConfig
+) -> EncodingDecodingDataConfig:
     """Overwrites fields in encoding_data_config with the fields set in ecog_data_config.
 
     Args:
-        encoding_data_config (EncodingDataConfig): encoding data config which will have fields overwritten.
+        encoding_data_config (EncodingDecodingDataConfig): encoding data config which will have fields overwritten.
         ecog_data_config (ECoGDataConfig): ecog data config which contains field to overwrite in encoding_data_config
 
     Returns:
-        EncodingDataConfig: config with ECoGDataConfig fields overwritten other than original_fs
+        EncodingDecodingDataConfig: config with ECoGDataConfig fields overwritten other than original_fs
     """
     # Maintain original_fs from encoding_config because it could be different than the one for pretraining.
     encoding_original_fs = encoding_data_config.original_fs

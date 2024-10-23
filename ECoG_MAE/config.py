@@ -1,6 +1,7 @@
 import configparser
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 import json
+from argparse import Namespace
 
 
 # Config classes here are very roughly following the format of Tensorflow Model Garden: https://www.tensorflow.org/guide/model_garden#training_framework
@@ -39,8 +40,8 @@ class ECoGDataConfig:
 
 @dataclass
 class TrainerConfig:
-    # Learning rate for training. If 0 then uses Adam scheduler.
-    learning_rate: float = 0.0
+    # Max learning rate for scheduler.
+    max_learning_rate: float = 3e-5
     # Number of epochs to train over data.
     num_epochs: int = 10
     # Type of loss to use.
@@ -65,6 +66,13 @@ class ViTConfig:
 
 
 @dataclass
+class LoggingConfig:
+    # Directory to write logs to (i.e. tensorboard events, etc).
+    event_log_dir: str = "event_logs/"
+    # Number of steps to print training progress after.
+    print_freq: int = 20
+
+@dataclass
 class VideoMAETaskConfig:
     # Config for model.
     vit_config: ViTConfig = field(default_factory=ViTConfig)
@@ -85,15 +93,31 @@ class VideoMAEExperimentConfig:
     )
     ecog_data_config: ECoGDataConfig = field(default_factory=ECoGDataConfig)
     trainer_config: TrainerConfig = field(default_factory=TrainerConfig)
+    logging_config: LoggingConfig = field(default_factory=LoggingConfig)
     # Name of training job. Will be used to save metrics.
     job_name: str = None
 
 
-def create_video_mae_experiment_config(args):
+def create_video_mae_experiment_config_from_file(config_file_path):
+    """Convert config file to an experiment config for VideoMAE."""
+    # Create fake args which will not error on attribute miss so we can reuse existing function.
+    class FakeArgs:
+        def __init__(self):
+            self.config_file = config_file_path
+        
+        def __getattr__(self, item):
+            return None
+        
+    return create_video_mae_experiment_config(FakeArgs())
+
+
+def create_video_mae_experiment_config(args: Namespace | str):
     """Convert command line arguments and config file to an experiment config for VideoMAE.
     
     Config values can be overridden by command line, otherwise use the config file.
     Boolean values can only be overriden to True as of now, to set a flag False do so in the config file.
+    
+    Can optionally pass 
     """
     config = configparser.ConfigParser(converters={'list': json.loads})
     config.read(args.config_file)
@@ -114,7 +138,7 @@ def create_video_mae_experiment_config(args):
             running_cell_masking=args.running_cell_masking if args.running_cell_masking else config.getboolean("VideoMAETaskConfig", "running_cell_masking"),
         ),
         trainer_config=TrainerConfig(
-            learning_rate=args.learning_rate if args.learning_rate else config.getfloat("TrainerConfig", "learning_rate"),
+            max_learning_rate=args.max_learning_rate if args.max_learning_rate else config.getfloat("TrainerConfig", "max_learning_rate"),
             num_epochs=args.num_epochs if args.num_epochs else config.getint("TrainerConfig", "num_epochs"),
             loss=args.loss if args.loss else config.get("TrainerConfig", "loss"),
         ),
@@ -132,5 +156,36 @@ def create_video_mae_experiment_config(args):
             shuffle=args.shuffle if args.shuffle else config.getboolean("ECoGDataConfig", "shuffle"),
             test_loader=args.test_loader if args.test_loader else config.getboolean("ECoGDataConfig", "test_loader"),
         ),
-        job_name=args.job_name,
+        logging_config=LoggingConfig(
+            event_log_dir=args.event_log_dir if args.event_log_dir else config.get("LoggingConfig", "event_log_dir"),
+            print_freq=args.print_freq if args.print_freq else config.getint("LoggingConfig", "print_freq"),
+        ),
+        job_name=args.job_name if args.job_name else config.get("JobDetails", "job_name", fallback="train-job"),
     )
+
+
+def write_config_file(path: str, experiment_config: VideoMAEExperimentConfig):
+    """Writes config to path as a .ini file.
+    
+    Args:
+        path (str): path to write file to.
+        experiment_config (VideoMAEExperimentConfig): Config to write in .ini format.
+    """
+    config = configparser.ConfigParser()
+
+    def add_section(section_name, data):
+        config[section_name] = {}
+        for key, value in data.items():
+            config[section_name][key] = str(value)
+
+    add_section("VideoMAETaskConfig.ViTConfig", asdict(experiment_config.video_mae_task_config.vit_config))
+    video_mae_task_config = {k: v for k, v in asdict(experiment_config.video_mae_task_config).items() if k != 'vit_config'}
+    add_section("VideoMAETaskConfig", video_mae_task_config)
+    add_section("ECoGDataConfig", asdict(experiment_config.ecog_data_config))
+    add_section("LoggingConfig", asdict(experiment_config.logging_config))
+    add_section("TrainerConfig", asdict(experiment_config.trainer_config))
+    config["JobDetails"] = {"job_name": experiment_config.job_name}
+
+    # Write the configuration to the file
+    with open(path, 'w') as configfile:
+        config.write(configfile)

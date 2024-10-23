@@ -31,7 +31,7 @@ def arg_parser():
     parser.add_argument("--bands", type=str)
     parser.add_argument("--num-epochs", type=int)
     parser.add_argument("--loss", type=str)
-    parser.add_argument("--learning-rate", type=float)
+    parser.add_argument("--max-learning-rate", type=float)
     parser.add_argument("--use-cls-token", dest="use_cls_token", action="store_true")
     parser.add_argument(
         "--use-contrastive-loss", dest="use_contrastive_loss", action="store_true"
@@ -47,6 +47,16 @@ def arg_parser():
         "--train-data-proportion",
         type=float,
         help="Percentage of data to assign to train split. All remaining data is assigned to test split.",
+    )
+    parser.add_argument(
+        "--event-log-dir",
+        type=str,
+        help="Directory to write training logs to (i.e. tensorboard logs)",
+    )
+    parser.add_argument(
+        "--print-freq",
+        type=int,
+        help="Number of steps to print training progress after.",
     )
     args = parser.parse_args()
 

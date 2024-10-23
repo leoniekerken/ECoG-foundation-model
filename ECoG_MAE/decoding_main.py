@@ -10,7 +10,7 @@ from config import create_video_mae_experiment_config_from_config_file
 from downstream_tasks.encoding_decoding.parser import arg_parser
 from downstream_tasks.encoding_decoding.config import create_encoding_decoding_experiment_config
 from downstream_tasks.encoding_decoding.utils import (
-    run_encoding_task
+    run_decoding_task
 )
 
 
@@ -33,7 +33,7 @@ def main(args):
     model.device = inference_device_name
 
     ecog_data_config = create_video_mae_experiment_config_from_config_file(os.path.join(experiment_config.encoding_task_config.model_path, "experiment_config.ini"))
-    rp, mspe = run_encoding_task(experiment_config, ecog_data_config, model)
+    rp, mspe = run_decoding_task(experiment_config, ecog_data_config, model)
 
     # TODO: Improve metrics used to measure performance of encoding task.
     print("Pearson correlations:", rp)

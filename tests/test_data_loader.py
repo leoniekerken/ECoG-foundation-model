@@ -107,7 +107,7 @@ def test_data_loader_can_handle_missing_channel(data_loader_creation_fn):
     data_loader = data_loader_creation_fn(config, ch_names, fake_data)
 
     actual_data = data_loader._load_grid_data()
-    assert np.all(np.isnan(actual_data[0]))
+    assert np.all(actual_data[0] == np.zeros_like(actual_data[0]))
     assert np.allclose(
         actual_data[1:],
         np.ones((63, 100 * FILE_SAMPLING_FREQUENCY)),

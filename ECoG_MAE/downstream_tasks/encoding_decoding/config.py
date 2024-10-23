@@ -2,8 +2,10 @@ from dataclasses import dataclass, field
 
 from config import ECoGDataConfig
 
+# Currently shared between encoding and decoding. Could be subclassed and split in the future if needed but for
+# now this is simpler and should be fine.
 @dataclass
-class EncodingDataConfig(ECoGDataConfig):
+class EncodingDecodingDataConfig(ECoGDataConfig):
     # Path to the dataframe containing conversation data (i.e. embeddings, word onsets and offsets, etc)
     conversation_data_df_path: str = ""
     
@@ -21,7 +23,7 @@ class EncodingDataConfig(ECoGDataConfig):
     lag: int = 0
     
 @dataclass
-class EncodingTaskConfig:
+class EncodingDecodingTaskConfig:
     # Path to the model checkpoint used to generate neural embeddings.
     # Assumes model was saved using torch.save and is the SimpleViT in models.py.
     model_path: str = ""
@@ -37,19 +39,19 @@ class EncodingTaskConfig:
     
 
 @dataclass
-class EncodingExperimentConfig:
-    encoding_data_config: EncodingDataConfig = field(default_factory=EncodingDataConfig)
-    encoding_task_config: EncodingTaskConfig = field(default_factory=EncodingTaskConfig)
+class EncodingDecodingExperimentConfig:
+    encoding_data_config: EncodingDecodingDataConfig = field(default_factory=EncodingDecodingDataConfig)
+    encoding_task_config: EncodingDecodingTaskConfig = field(default_factory=EncodingDecodingTaskConfig)
 
 
-def create_encoding_experiment_config(args) -> EncodingExperimentConfig:
+def create_encoding_decoding_experiment_config(args) -> EncodingDecodingExperimentConfig:
     """Convert command line arguments to an experiment config for VideoMAE."""
-    return EncodingExperimentConfig(
-        encoding_task_config=EncodingTaskConfig(
+    return EncodingDecodingExperimentConfig(
+        encoding_task_config=EncodingDecodingTaskConfig(
             model_path=args.model_path,
             embedding_device=args.embedding_device,
         ),
-        encoding_data_config=EncodingDataConfig(
+        encoding_data_config=EncodingDecodingDataConfig(
             # ECoGDataConfig variables are loaded from the model checkpoint to ensure data is preprocessed in the same way.
             encoding_neural_data_folder=args.encoding_neural_data_folder,
             conversation_data_df_path=args.conversation_data_df_path,

@@ -1,6 +1,6 @@
 from config import ECoGDataConfig
-from downstream_tasks.encoding.utils import merge_data_configs
-from downstream_tasks.encoding.config import EncodingDataConfig
+from downstream_tasks.encoding_decoding.utils import merge_data_configs
+from downstream_tasks.encoding_decoding.config import EncodingDecodingDataConfig
 
 
 def test_merge_data_configs_correctly_sets_ecog_config_values():
@@ -19,7 +19,7 @@ def test_merge_data_configs_correctly_sets_ecog_config_values():
         test_loader = True,
     )
     
-    encoding_data_config = EncodingDataConfig(
+    encoding_data_config = EncodingDecodingDataConfig(
         conversation_data_df_path = "conversation_path",
         encoding_neural_data_folder = "neural_folder",
         electrode_glob_path = "NY*_*_Part*_conversation*_electrode_preprocess_file_{elec_id}.mat",
@@ -29,7 +29,7 @@ def test_merge_data_configs_correctly_sets_ecog_config_values():
     
     final_config = merge_data_configs(encoding_data_config, ecog_data_config)
     
-    expected_final_config = EncodingDataConfig(
+    expected_final_config = EncodingDecodingDataConfig(
         conversation_data_df_path = "conversation_path",
         encoding_neural_data_folder = "neural_folder",
         electrode_glob_path = "NY*_*_Part*_conversation*_electrode_preprocess_file_{elec_id}.mat",
